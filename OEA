@@ -1,0 +1,24 @@
+let
+    #"HTML Code" = Web.BrowserContents("https://www.gov.br/receitafederal/pt-br/assuntos/aduana-e-comercio-exterior/importacao-e-exportacao/oea/operadores-ja-certificados-como-oea/operadores-OEA-ativos/view"),
+    #"Split Text" = Text.Split(#"HTML Code", "<a href=""https://www.gov.br/receitafederal/pt-br/assuntos/aduana-e-comercio-exterior/importacao-e-exportacao/oea/operadores-ja-certificados-como-oea/operadores-OEA-ativos/@@download/file/"),
+    #"Split Text1" = #"Split Text"{1},
+    #"Split Text2" = Text.Split(#"Split Text1", "<img border=""0"" src=""xls.png"" alt=""application/vnd.ms-excel"">"),
+    #"Split Text3" = #"Split Text2"{0},
+    #"Converted to Table" = #table(1, {{#"Split Text3"}}),
+    #"Split Column by Position" = Table.SplitColumn(#"Converted to Table", "Column1", Splitter.SplitTextByPositions({0, 10}, false), {"Data", "Column1.2"}),
+    #"Removed Columns" = Table.RemoveColumns(#"Split Column by Position",{"Column1.2"}),
+    Data1 = #"Removed Columns"{0}[Data],
+    Source = Excel.Workbook(Web.Contents("https://www.gov.br/receitafederal/pt-br/assuntos/aduana-e-comercio-exterior/importacao-e-exportacao/oea/operadores-ja-certificados-como-oea/operadores-OEA-ativos/@@download/file/"&Data1&"_Tabela_Operadores%20OEA%20Public%C3%A1veis%20(site).xls"), null, true),
+    ANALITICO1 = Source{[Name="ANALITICO"]}[Data],
+    #"Removed Top Rows" = Table.Skip(ANALITICO1,2),
+    #"Promoted Headers" = Table.PromoteHeaders(#"Removed Top Rows", [PromoteAllScalars=true]),
+    #"Changed Type" = Table.TransformColumnTypes(#"Promoted Headers",{{"index", Int64.Type}, {"Identificador do País", type text}, {"CNPJ do Estabelecimento", type text}, {"Nome", type text}, {"Funcao do certificado", type text}, {"Numero do Certificado (TEXTO)", Int64.Type}, {"Data de emissao do certificado: Dia", type date}, {"Situacao do Certificado", type text}, {"Modalidade do Certificado", type text}}),
+    #"Replaced Value" = Table.ReplaceValue(#"Changed Type",".","",Replacer.ReplaceText,{"CNPJ do Estabelecimento"}),
+    #"Replaced Value1" = Table.ReplaceValue(#"Replaced Value","/","",Replacer.ReplaceText,{"CNPJ do Estabelecimento"}),
+    #"Replaced Value2" = Table.ReplaceValue(#"Replaced Value1","-","",Replacer.ReplaceText,{"CNPJ do Estabelecimento"}),
+    #"Inserted First Characters" = Table.AddColumn(#"Replaced Value2", "CNPJ8", each Text.Start([CNPJ do Estabelecimento], 8), type text),
+    #"Inserted Last Characters" = Table.AddColumn(#"Inserted First Characters", "CNPJFilial", each Text.End([CNPJ do Estabelecimento], 6), type text),
+    #"Changed Type1" = Table.TransformColumnTypes(#"Inserted Last Characters",{{"CNPJ8", Int64.Type}}),
+    #"Capitalized Each Word" = Table.TransformColumns(#"Changed Type1",{{"Nome", Text.Proper, type text}})
+in
+    #"Capitalized Each Word"
